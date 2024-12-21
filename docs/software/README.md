@@ -605,5 +605,184 @@ COMMIT;
 ```
 
 
-## RESTfull сервіс для управління даними
+### app.js модуль
+```js
+import express from 'express';
+import errorHandler from './controllers/errorController.js';
+import userRouter from './routes/userRoutes.js';
+const app = express();
 
+app.use(express.json());
+app.use('/api/users', userRouter);
+app.use(errorHandler);
+
+export default app;
+```
+
+### server.js модуль
+```js
+import app from './app.js';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+dotenv.config({ path: './config.env' });
+
+const port = process.env.PORT || 3000;
+
+mongoose.connect(process.env.DATABASE_URL).then(console.log('Connected to DB'));
+
+app.listen(port, () => {
+    console.log(`Listening on port ${port}`);
+});
+
+```
+
+### userRoutes.js (маршрути запитів для користувачів)
+```js
+import express from "express";
+import {
+    getAllUsers,
+    createUser,
+    getUser,
+    updateUser,
+    deleteUser,
+} from "../controllers/userController.js";
+
+const router = express.Router();
+
+router.route("/").get(getAllUsers).post(createUser);
+
+router.route("/:id").get(getUser).patch(updateUser).delete(deleteUser);
+
+export default router;
+```
+
+### userController.js (контролер обробки запитів для користувачів)
+```js
+import catchAsync from '../utils/catchAsync.js';
+import User from '../models/userModel.js';
+import AppError from '../utils/appError.js';
+export const getAllUsers = catchAsync(async (req, res, next) => {
+    const users = await User.find();
+    res.status(200).json({
+        status: 'success',
+        data: {
+            users,
+        },
+    });
+});
+export const getUser = catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user,
+        },
+    });
+});
+export const createUser = catchAsync(async (req, res, next) => {
+    const user = await User.create(req.body);
+    res.status(201).json({
+        status: 'success',
+        data: {
+            user,
+        },
+    });
+});
+export const updateUser = catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(id, req.body, {
+        new: true,
+    });
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user,
+        },
+    });
+});
+export const deleteUser = catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    const user = await User.findByIdAndDelete(id);
+    if (!user) {
+        return next(new AppError('User not found', 404));
+    }
+    res.status(204).json({
+        status: 'success',
+        data: null,
+    });
+});
+```
+
+### userModel.js (взаємодія з сутністю User)
+```js
+import mongoose from 'mongoose';
+const UserSchema = new mongoose.Schema({
+    first_name: {
+        type: String,
+        required: [true, 'Please enter a first name'],
+    },
+    last_name: {
+        type: String,
+        required: [true, 'Please enter a last name'],
+    },
+    email: {
+        type: String,
+        required: [true, 'Please enter email'],
+        unique: [true, 'Email must be unique'],
+    },
+    password: {
+        type: String,
+        required: [true, 'Please enter password'],
+        unique: [true, 'Password must be unique'],
+    },
+});
+const User = mongoose.model('User', UserSchema);
+export default User;
+```
+
+### errorController.js (для обробки помилок)
+```js
+const errorHandler = (err, req, res, next) => {
+    console.error({
+        message: err.message,
+        stack: err.stack,
+    });
+
+    const statusCode = err.statusCode || 500;
+    const status = err.status || 'error';
+    res.status(statusCode).json({ status, message: err.message });
+};
+
+export default errorHandler;
+```
+
+### catchAsync.js (обгортка над функціями для перенаправлення помилок)
+```js
+const catchAsync = (fn) => {
+    return (req, res, next) => {
+        fn(req, res, next).catch(next);
+    };
+};
+
+export default catchAsync;
+```
+
+### appError.js (клас помилки)
+```js
+export default class AppError extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.statusCode = statusCode;
+        this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+```
