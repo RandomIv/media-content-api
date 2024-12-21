@@ -8,7 +8,7 @@
 
 ### GET api/users
 
-<img src="get-all-users.png">
+<img src="./get-all-users.png">
 
 ### GET api/users/:id
 
@@ -16,7 +16,7 @@
 
 ### POST api/users
 
-<img src="create-user.png">
+<img src="./create-user.png">
 
 ### PATCH api/users/:id
 
@@ -42,4 +42,4 @@
 
 ### EXCEPTION(User): User Not Found
 
-<img src="error-user-not-found.png">
+<img src="./error-user-not-found.png">
